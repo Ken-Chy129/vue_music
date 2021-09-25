@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>亨哼播放器</title>
+    <style>
+        a{text-decoration: none; color: black;}
+        div{box-sizing: border-box; border: 0px;}
+        #border{width: 1200px; height: 800px; border: 2px black solid; border-radius: 10px; margin: 10px auto; position: relative; box-sizing: content-box;}
+        #top{width: 100%; height: 120px; border-radius: 10px 10px 0 0; background-color: rgba(107, 233, 193, 0.5);}
+        #kernel{width: 100%; height: 600px; background-color:rgba(255, 248, 220, 0.5);}
+        #bottom{width: 100%; height: 80px; border-radius: 0 0 10px 10px; background-color:#f1f3f4;}
+        #title{font-family: "华文琥珀"; font-size: 60px; margin-top: 29px; margin-left:50px; display: inline-block; color:black;}
+        #search{width: 500px; height: 50px; position: absolute; right: 50px; border-radius: 14px; margin-top: 33px; opacity: 0.8; padding-left: 16px; padding-right: 16px; font-size: 22px; outline: none;}
+        .kernel{height: 100%; display: inline-block;}
+        ::-webkit-scrollbar {display: none;}/*隐藏滚动条*/
+        #comment{width: 280px; border-left: 2px double rgba(147, 189, 107, 0.5); border-width: 4px; overflow-y: scroll;}
+        .myaudio{width: 1000px; margin: 15px 100px 0 100px; background-size:cover;}
+        #list{width: 310px; border-right: 2px double; border-width: 4px; border-color: rgba(147, 189, 107, 0.5) ; padding: 10px 20px 10px 15px; overflow-y: scroll;}
+        .active{color: tomato;}
+        #list li{margin: 25px 0 35px 0; font-size: larger;}
+        #list li:first-of-type{margin-top: 20px;}
+        #lyric{width: 600px; overflow: hidden;}
+        #lyric ul{padding: 0px; transition-duration: 600ms; line-height: 20px;}
+        #lyric li:first-of-type{margin-top: 35px;}
+        #lyric li{list-style: none; margin: 22px 0; font-size: large; text-align: center; font-family: "楷体"; font-weight: bold;}
+        .lineHigh{color: red; font-weight: bolder;};
+    </style>
+    <script src="Vue.js"></script>
+    <script src="axios.js"></script>
+</head>
+<body>
+    <div id="musicplayer">
+        <div id="border">
+            <div id="top">
+                <span id="title">亨哼音乐</span>
+                <input type="text" id="search" @keyup.enter="search" v-model="message" placeholder="请输入歌名或歌手名">
+            </div>
+            <div id="kernel">
+                <div id="list" class="kernel">
+                    <ol>
+                        <li v-for="(item, i) in information">
+                            <a href="javascript:void(0)" @click="playmusic(item.id, i)" :class="{active:activeNum==i}">{{item.artists[0].name + " - " + item.name}}</a>
+                        </li>
+                    </ol>
+                </div>
+                <div id="lyric" class="kernel">
+                    <ul id="lyriclist">
+                        <li v-for="(item,index) in lyric" :class="{lineHigh:linesecondes==index}">
+                            {{item}}
+                        </li>
+                    </ul>
+                </div>
+                <div id="comment" class="kernel">
+                    <div style="font-family:'楷体'; font-size: 40px; text-align: center; font-weight: bolder; padding: 20px 0; color: chocolate; position: sticky; top: 5px; border-bottom: dashed 2px yellowgreen;">
+                        评论区
+                    </div>
+                    <div v-for="item in comment">
+                        <div style="position: relative;">
+                            <img :src="item.user.avatarUrl" alt="" style="width: 60px; height: 60px; margin: 10px; padding: 1px; border: 2px solid black; border-width: 1px; float: left;">
+                            <div style="display: inline; float: left; position: absolute; top: 20px">
+                                <span>{{'用户id：' + item.user.userId}}</span><br>
+                                <span>{{'用户名：' + item.user.nickname}}</span>
+                            </div>
+                            <div style="border-bottom: 1px solid yellowgreen; padding: 0 10px 10px 10px; clear: both; font-style: italic; font-size: 12px;">{{'" ' + item.content + '"'}}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="bottom">
+                <div id="progress">
+                    <audio :src="url" controls autoplay loop class="myaudio" id="time" @timeupdate="update"></audio>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        var app = new Vue({
+            el:"#musicplayer",
+            data:{
+                message:"",//搜索框输入信息
+                information:[],//搜索结果列表
+                url:"",//歌曲地址
+                lyric:{},//歌词列表
+                comment:[],
+                value:"",//当前播放进度
+                linesecondes:0,
+                linenow:0,
+                activeNum:-1,//播放歌曲的序号
+            },
+            methods:{
+                search:function(){
+                    var that = this;
+                    axios.get("https://autumnfish.cn/search?keywords=" + this.message).then(function(response){
+                        that.information = response.data.result.songs;
+                    },function(err){
+                        alert(err);
+                    })
+                },
+                playmusic:function(id, i){
+                    var that = this;
+                    that.activeNum = i;
+                    that.id = id;
+                    that.linesecondes = 0;
+                    that.linenow = 0;
+                    var ul = document.getElementById("lyriclist");
+                    ul.style.transform = "translateY(0)";
+                    axios.get("https://api.imjad.cn/cloudmusic/?id=" + id).then(function(response){
+                        if(response.data.data[0].url == ""){
+                            alert("很抱歉，此曲暂无资源QAQ");
+                        }
+                        that.url = response.data.data[0].url;
+                    })
+                    axios.get("https://api.imjad.cn/cloudmusic/?type=lyric&id=" + id).then(function(response){
+                        // that.text = response.data.lrc.lyric;
+                        // that.lyric = that.text.split('\n');
+                        let lyricArr = response.data.lrc.lyric.split('[').slice(1);
+                        let lrcObj = {};
+                        lyricArr.forEach(item => {
+                            let arr = item.split(']');	// 再分割右括号
+                            // 时间换算成秒
+                            let m = parseInt(arr[0].split(':')[0])
+                            let s = parseInt(arr[0].split(':')[1])
+                            arr[0] = m * 60 + s;
+                            if(arr[1] != '\n'){ // 去除歌词中的换行符
+                                lrcObj[arr[0]] = arr[1];
+                            }
+                        })
+                        that.lyric = lrcObj;
+                    })
+                    axios.get("https://autumnfish.cn/comment/hot?type=0&id=" + id).then(function(response){
+                        that.comment = response.data.hotComments
+                        //console.log(response.data.hotComments);
+                    })
+                },
+                update:function(){
+                    var time = document.getElementById("time").currentTime;
+                    //this.value = time;
+                    //console.log(Object.keys(this.lyric)[this.linenow])//获取键
+                    // if(Object.keys(this.lyric)[this.linenow] <= time){
+                    //     this.linehigh();
+                    //     this.linenow++;
+                    // }
+                    let shine = Object.keys(this.lyric);
+                    for(let i = 0; i < shine.length; i++){
+                        if(i == shine.length - 1){
+                            this.linesecondes = shine[i];
+                        }
+                        else if(shine[i] <= time && shine[i+1] > time){
+                            this.linesecondes = shine[i];
+                            this.linenow = i;
+                            if(this.linenow >= 7){
+                                this.linechange();
+                            }
+                            break;
+                        }
+                    }
+                },
+                linechange:function(){
+                    var ul = document.getElementById("lyriclist");
+                    // var lis = ul.getElementsByTagName("li");
+                    // if(this.linenow > 0){
+                    //     lis[this.linenow - 1].removeAttribute("class");
+                    // }
+                    // lis[this.linenow].className = "lineHigh";
+                    ul.style.transform = "translateY(" + (this.linenow - 6) * (-42) + "px)";
+                }
+            },
+        })
+    </script>
+</body>
+</html>
